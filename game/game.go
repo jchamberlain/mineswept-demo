@@ -34,7 +34,7 @@ type game struct {
 	cellCount                  int
 	revealedOrFlaggedCellCount int
 	isEnded                    bool
-	createAt                   time.Time
+	createdAt                  time.Time
 	updatedAt                  time.Time
 	events                     []event
 }
@@ -76,6 +76,8 @@ func NewGame(width, height, mineCount int) (*game, error) {
 func (g *game) onGameStarted(e gameStartedEvent) []event {
 	g.id = e.AggregateId
 	g.version = e.Version
+	g.createdAt = e.At
+	g.updatedAt = e.At
 	g.grid = e.grid
 	g.cellCount = len(g.grid) * len(g.grid[0])
 	return []event{}
@@ -136,11 +138,15 @@ func (g *game) onCellRevealed(e cellRevealedEvent) {
 	target := &g.grid[e.CellCoord[1]][e.CellCoord[0]]
 	target.isRevealed = true
 	g.revealedOrFlaggedCellCount++
+	g.version = e.Version
+	g.updatedAt = e.At
 }
 
 func (g *game) onGameLost(e gameLostEvent) {
 	// Mark game as ended and reveal all cells.
 	g.isEnded = true
+	g.version = e.Version
+	g.updatedAt = e.At
 
 	for y := 0; y < len(g.grid); y++ {
 		for x := 0; x < len(g.grid[y]); x++ {
@@ -156,6 +162,8 @@ func (g *game) onGameLost(e gameLostEvent) {
 func (g *game) onGameWon(e gameWonEvent) {
 	// Mark game as ended.
 	g.isEnded = true
+	g.version = e.Version
+	g.updatedAt = e.At
 }
 
 func (g *game) loseGameIfMined(coord coordinate) event {
