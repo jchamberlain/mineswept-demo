@@ -1,6 +1,7 @@
 package game
 
 import (
+	"sort"
 	"testing"
 )
 
@@ -121,6 +122,20 @@ func TestRevealCell(t *testing.T) {
 		t.Error("Incorrectly flagged cell A1")
 	}
 
+	// Try a non-mined cell with no adjacent mines. (Should reveal neighboring cells recursively.)
+	err = g.RevealCell("E3")
+	if err != nil {
+		t.Errorf("Failed to reveal cell E3: %s", err)
+	}
+
+	expectedRevealed := []CellName{"D2", "E2", "D3", "D4", "E4", "C2", "C3", "C4"}
+	for _, cellName := range expectedRevealed {
+		coord, _ := cellNameToCoordinate(cellName)
+		if !g.grid[coord[1]][coord[0]].isRevealed {
+			t.Errorf("Failed to reveal neighboring cell %s (%d,%d)", cellName, coord[0], coord[1])
+		}
+	}
+
 	// Try a previously revealed cell.
 	g.grid[0][0].isRevealed = true
 	err = g.RevealCell("A1")
@@ -150,6 +165,69 @@ func TestRevealCell(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestGetNeighbors(t *testing.T) {
+	// Top-left corner
+	neighbors := getNeighbors(coordinate{0, 0}, 5, 5)
+	expected := []coordinate{
+		coordinate{1, 0},
+		coordinate{0, 1},
+		coordinate{1, 1},
+	}
+	assertEqualCoords("Should get neighbors for top-left cell", expected, neighbors, t)
+
+	// Top-right corner
+	neighbors = getNeighbors(coordinate{4, 0}, 5, 5)
+	expected = []coordinate{
+		coordinate{3, 0},
+		coordinate{3, 1},
+		coordinate{4, 1},
+	}
+	assertEqualCoords("Should get neighbors for top-right cell", expected, neighbors, t)
+
+	// Bottom-left corner
+	neighbors = getNeighbors(coordinate{0, 4}, 5, 5)
+	expected = []coordinate{
+		coordinate{0, 3},
+		coordinate{1, 3},
+		coordinate{1, 4},
+	}
+	assertEqualCoords("Should get neighbors for bottom-left cell", expected, neighbors, t)
+
+	// Bottom-right corner
+	neighbors = getNeighbors(coordinate{4, 4}, 5, 5)
+	expected = []coordinate{
+		coordinate{3, 3},
+		coordinate{4, 3},
+		coordinate{3, 4},
+	}
+	assertEqualCoords("Should get neighbors for bottom-right cell", expected, neighbors, t)
+
+	// A left side
+	neighbors = getNeighbors(coordinate{0, 2}, 5, 5)
+	expected = []coordinate{
+		coordinate{0, 1},
+		coordinate{1, 1},
+		coordinate{1, 2},
+		coordinate{0, 3},
+		coordinate{1, 3},
+	}
+	assertEqualCoords("Should get neighbors for a left side cell", expected, neighbors, t)
+
+	// Somewhere in the middle
+	neighbors = getNeighbors(coordinate{2, 2}, 5, 5)
+	expected = []coordinate{
+		coordinate{1, 1},
+		coordinate{2, 1},
+		coordinate{3, 1},
+		coordinate{1, 2},
+		coordinate{3, 2},
+		coordinate{1, 3},
+		coordinate{2, 3},
+		coordinate{3, 3},
+	}
+	assertEqualCoords("Should get neighbors for an inner cell", expected, neighbors, t)
 }
 
 func TestColumnKeyToInt(t *testing.T) {
@@ -203,9 +281,9 @@ func TestCellNameToCoord(t *testing.T) {
 func makeExampleGrid() [][]cell {
 	// 1  1  2  X  1
 	// 1  X  2  1  1
-	// 2  3  2  1  0
-	// X  2  X  2  1
-	// 1  2  1  2  X
+	// 3  3  2  0  0
+	// X  X  1  1  1
+	// 2  2  1  1  X
 
 	return [][]cell{
 		[]cell{
@@ -223,25 +301,51 @@ func makeExampleGrid() [][]cell {
 			cell{isMined: false, adjacentMines: 1},
 		},
 		[]cell{
-			cell{isMined: false, adjacentMines: 2},
+			cell{isMined: false, adjacentMines: 3},
 			cell{isMined: false, adjacentMines: 3},
 			cell{isMined: false, adjacentMines: 2},
-			cell{isMined: false, adjacentMines: 1},
+			cell{isMined: false, adjacentMines: 0},
 			cell{isMined: false, adjacentMines: 0},
 		},
 		[]cell{
 			cell{isMined: true},
-			cell{isMined: false, adjacentMines: 2},
 			cell{isMined: true},
-			cell{isMined: false, adjacentMines: 2},
+			cell{isMined: false, adjacentMines: 1},
+			cell{isMined: false, adjacentMines: 1},
 			cell{isMined: false, adjacentMines: 1},
 		},
 		[]cell{
-			cell{isMined: false, adjacentMines: 1},
+			cell{isMined: false, adjacentMines: 2},
 			cell{isMined: false, adjacentMines: 2},
 			cell{isMined: false, adjacentMines: 1},
-			cell{isMined: false, adjacentMines: 2},
+			cell{isMined: false, adjacentMines: 1},
 			cell{isMined: true},
 		},
+	}
+}
+
+func assertEqualCoords(msg string, expected, found []coordinate, t *testing.T) {
+	if len(expected) != len(found) {
+		t.Errorf("%s\nExpected %s\nFound    %s", msg, expected, found)
+		return
+	}
+
+	expectedStrings := make([]string, len(expected))
+	for _, coord := range expected {
+		expectedStrings = append(expectedStrings, coord.String())
+	}
+	sort.Strings(expectedStrings)
+
+	foundStrings := make([]string, len(found))
+	for _, coord := range found {
+		foundStrings = append(foundStrings, coord.String())
+	}
+	sort.Strings(foundStrings)
+
+	for i := 0; i < len(expectedStrings); i++ {
+		if expectedStrings[i] != foundStrings[i] {
+			t.Errorf("%s\nExpected %s\nFound    %s", msg, expected, found)
+			return
+		}
 	}
 }

@@ -44,7 +44,12 @@ type game struct {
 }
 
 type CellName string
+
 type coordinate [2]int
+
+func (c coordinate) String() string {
+	return fmt.Sprintf("%d,%d", c[0], c[1])
+}
 
 // NewGame will create a new game with a grid initialized to the desired size and mine count.
 func NewGame(width, height, mineCount int) (*game, error) {
@@ -124,13 +129,13 @@ func (g *game) RevealCell(cellName CellName) error {
 		return nil
 	}
 
-	if won := g.winGameIfLastCell(coord); won != nil {
-		g.events = append(g.events, won)
-		return nil
-	}
-
 	if revealedNeighbors := g.revealNeighborsIfNoAdjacentMines(coord, revealed); len(revealedNeighbors) > 0 {
 		g.events = append(g.events, revealedNeighbors...)
+	}
+
+	if won := g.winGameIfLastCell(coord); won != nil {
+		g.events = append(g.events, won)
+
 	}
 
 	return nil
@@ -222,7 +227,7 @@ func (g *game) revealNeighborsIfNoAdjacentMines(coord coordinate, originalEvent 
 					At:          time.Now(),
 				},
 				InteractionCellName: originalEvent.InteractionCellName,
-				CellCoord:           coord,
+				CellCoord:           queue[i],
 			}
 			revealed.applyTo(g)
 			events = append(events, revealed)
@@ -429,7 +434,6 @@ func (e gameLostEvent) applyTo(g *game) {
 func cellNameToCoordinate(cellName CellName) (coordinate, error) {
 	// Must be letters followed by numbers.
 	matches := validCellName.FindStringSubmatch(string(cellName))
-	fmt.Println(matches)
 	if matches == nil {
 		return [2]int{0, 0}, fmt.Errorf("Invalid cell name '%s'. Must be a letter followed by a number, e.g., B6.", cellName)
 	}
